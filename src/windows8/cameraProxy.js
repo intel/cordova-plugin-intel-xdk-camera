@@ -1,3 +1,4 @@
+
 /*
 Copyright 2015 Intel Corporation
 
@@ -83,93 +84,91 @@ module.exports = {
 
         me.busy = true;
 
-        if (false) {
-            var captureInitSettings = null;
-            captureInitSettings = new Windows.Media.Capture.MediaCaptureInitializationSettings();
-            captureInitSettings.audioDeviceId = "";
-            captureInitSettings.videoDeviceId = "";
-            captureInitSettings.streamingCaptureMode = Windows.Media.Capture.StreamingCaptureMode.video;
-            captureInitSettings.photoCaptureSource = Windows.Media.Capture.PhotoCaptureSource.photo;
-            captureInitSettings.realTimeModeEnabled = true;
-            if (deviceList.length > 0)
-                captureInitSettings.videoDeviceId = me.deviceList[0].id;
+        var cameraCaptureUI = new Windows.Media.Capture.CameraCaptureUI();
 
-            var oMediaCapture = null;
-            oMediaCapture = new Windows.Media.Capture.MediaCapture();
-            oMediaCapture.initializeAsync(captureInitSettings).then(function (result) {
-                createProfile();
-            }, errorHandler);
+        cameraCaptureUI.photoSettings.allowCropping = true;
+
+        if (picType == "png") {
+            cameraCaptureUI.photoSettings.format = Windows.Media.Capture.CameraCaptureUIPhotoFormat.png;
         } else {
+            cameraCaptureUI.photoSettings.format = Windows.Media.Capture.CameraCaptureUIPhotoFormat.jpeg;
+        }
 
-            var cameraCaptureUI = new Windows.Media.Capture.CameraCaptureUI();
+        cameraCaptureUI.captureFileAsync(Windows.Media.Capture.CameraCaptureUIMode.photo).then(function (picture) {
+            if (picture) {
+                var applicationData = Windows.Storage.ApplicationData.current;
+                var localFolder = applicationData.localFolder;
 
-            cameraCaptureUI.photoSettings.allowCropping = true;
-            //var allowCrop = !!params[7];
-            //if (!allowCrop) {
-            //    cameraCaptureUI.photoSettings.allowCropping = false;
-            //}
-
-            if (picType == "png") {
-                cameraCaptureUI.photoSettings.format = Windows.Media.Capture.CameraCaptureUIPhotoFormat.png;
-            } else {
-                cameraCaptureUI.photoSettings.format = Windows.Media.Capture.CameraCaptureUIPhotoFormat.jpeg;
-            }
-
-            cameraCaptureUI.captureFileAsync(Windows.Media.Capture.CameraCaptureUIMode.photo).then(function (picture) {
-                if (picture) {
-                    var applicationData = Windows.Storage.ApplicationData.current;
-                    var localFolder = applicationData.localFolder;
-
-                    localFolder.createFolderAsync(intel.xdk.camera.pictureLocation.replace(me.pictureExtension, ""), Windows.Storage.CreationCollisionOption.openIfExists).then(
-                        function (dataFolder) {
-                            picture.copyAsync(dataFolder, picture.name, Windows.Storage.NameCollisionOption.replaceExisting).then(
-                                function (storageFile) {
-                                    if (storageFile != null) {
-                                        var ev = document.createEvent('Events');
-                                        ev.initEvent('intel.xdk.camera.internal.picture.add', true, true);
-                                        ev.success = true;
-                                        ev.filename = storageFile.name;
-                                        document.dispatchEvent(ev);
-
-                                        ev = document.createEvent('Events');
-                                        ev.initEvent('intel.xdk.camera.picture.add', true, true);
-                                        ev.success = true;
-                                        ev.filename = storageFile.name;
-                                        document.dispatchEvent(ev);
-
-                                        cameraCaptureUI = null;
-                                        me.busy = false;
-                                    }
-                                }, function () {
-                                    var ev = document.createEvent('Events');
-                                    ev.initEvent('intel.xdk.camera.picture.add', true, true);
-                                    ev.success = false;
-                                    ev.message = 'Photo capture failed';
+                localFolder.createFolderAsync(intel.xdk.camera.pictureLocation.replace(me.pictureExtension, ""), Windows.Storage.CreationCollisionOption.openIfExists).then(
+                    function (dataFolder) {
+                        picture.copyAsync(dataFolder, picture.name, Windows.Storage.NameCollisionOption.replaceExisting).then(
+                            function (storageFile) {
+                                if (storageFile != null) {
+                                    /*var ev = document.createEvent('Events');
+                                    ev.initEvent('intel.xdk.camera.internal.picture.add', true, true);
+                                    ev.success = true;
                                     ev.filename = storageFile.name;
-                                    document.dispatchEvent(ev);
+                                    document.dispatchEvent(ev);*/
+                                    me.createAndDispatchEvent("intel.xdk.camera.internal.picture.add",
+                                        {
+                                            success: true,
+                                            filename: storageFile.name
+                                        });
+
+                                    /*ev = document.createEvent('Events');
+                                    ev.initEvent('intel.xdk.camera.picture.add', true, true);
+                                    ev.success = true;
+                                    ev.filename = storageFile.name;
+                                    document.dispatchEvent(ev);*/
+                                    me.createAndDispatchEvent("intel.xdk.camera.picture.add",
+                                        {
+                                            success: true,
+                                            filename: storageFile.name
+                                        });
 
                                     cameraCaptureUI = null;
                                     me.busy = false;
-                                }, function () {
+                                }
+                            }, function () {
+                                /*var ev = document.createEvent('Events');
+                                ev.initEvent('intel.xdk.camera.picture.add', true, true);
+                                ev.success = false;
+                                ev.message = 'Photo capture failed';
+                                ev.filename = storageFile.name;
+                                document.dispatchEvent(ev);*/
+                                me.createAndDispatchEvent("intel.xdk.camera.picture.add",
+                                    {
+                                        success: false,
+                                        message: "Photo capture failed",
+                                        filename: storageFile.name
+                                    });
 
-                                });
-                        });
-                } else {
-                    var ev = document.createEvent('Events');
-                    ev.initEvent('intel.xdk.camera.picture.add', true, true);
-                    ev.success = false;
-                    ev.message = 'The user canceled.';
-                    ev.filename = "";
-                    document.dispatchEvent(ev);
+                                cameraCaptureUI = null;
+                                me.busy = false;
+                            }, function () {
 
-                    cameraCaptureUI = null;
-                    me.busy = false;
-                }
-            }, function () {
-                errorCallback("Fail to capture a photo.");
-            });
+                            });
+                    });
+            } else {
+                /*var ev = document.createEvent('Events');
+                ev.initEvent('intel.xdk.camera.picture.add', true, true);
+                ev.success = false;
+                ev.message = 'The user canceled.';
+                ev.filename = "";
+                document.dispatchEvent(ev);*/
+                me.createAndDispatchEvent("intel.xdk.camera.picture.add",
+                    {
+                        success: false,
+                        message: "The user canceled",
+                        filename: ""
+                    });
 
-        }
+                cameraCaptureUI = null;
+                me.busy = false;
+            }
+        }, function () {
+            errorCallback("Fail to capture a photo.");
+        });
     },
 
     takeFrontPicture: function (successCallback, errorCallback, params) {
@@ -220,37 +219,59 @@ module.exports = {
                                 picture.copyAsync(dataFolder, picture.name, Windows.Storage.NameCollisionOption.replaceExisting).then(
                                     function (storageFile) {
                                         if (storageFile != null) {
-                                            var ev = document.createEvent('Events');
+                                            /*var ev = document.createEvent('Events');
                                             ev.initEvent('intel.xdk.camera.internal.picture.add', true, true);
                                             ev.success = true;
                                             ev.filename = storageFile.name;
-                                            document.dispatchEvent(ev);
+                                            document.dispatchEvent(ev);*/
+                                            me.createAndDispatchEvent("intel.xdk.camera.internal.picture.add",
+                                                {
+                                                    success: true,
+                                                    filename: storageFile.name
+                                                });
 
-                                            ev = document.createEvent('Events');
+                                            /*ev = document.createEvent('Events');
                                             ev.initEvent('intel.xdk.camera.picture.add', true, true);
                                             ev.success = true;
                                             ev.filename = storageFile.name;
-                                            document.dispatchEvent(ev);
+                                            document.dispatchEvent(ev);*/
+                                            me.createAndDispatchEvent("intel.xdk.camera.picture.add",
+                                                {
+                                                    success: true,
+                                                    filename: storageFile.name
+                                                });
                                         }
                                     }, function () {
-                                        var ev = document.createEvent('Events');
+                                        /*var ev = document.createEvent('Events');
                                         ev.initEvent('intel.xdk.camera.picture.add', true, true);
                                         ev.success = false;
                                         ev.message = 'Photo capture failed';
                                         ev.filename = storageFile.name;
-                                        document.dispatchEvent(ev);
+                                        document.dispatchEvent(ev);*/
+                                        me.createAndDispatchEvent("intel.xdk.camera.picture.add",
+                                            {
+                                                success: false,
+                                                message: "Photo capture failed",
+                                                filename: storageFile.name
+                                            });
 
                                     }, function () {
 
                                     });
                             });
                     } else {
-                        var ev = document.createEvent('Events');
+                        /*var ev = document.createEvent('Events');
                         ev.initEvent('intel.xdk.camera.picture.add', true, true);
                         ev.success = false;
                         ev.message = 'The user canceled.';
                         ev.filename = "";
-                        document.dispatchEvent(ev);
+                        document.dispatchEvent(ev);*/
+                        me.createAndDispatchEvent("intel.xdk.camera.picture.add",
+                            {
+                                success: false,
+                                message: "The user canceled",
+                                filename: ""
+                            });
 
                         openPicker = null;
                         me.busy = false;
@@ -275,23 +296,38 @@ module.exports = {
                         if (file) {
                             file.deleteAsync();
 
-                            var ev = document.createEvent('Events');
+                            /*var ev = document.createEvent('Events');
                             ev.initEvent('intel.xdk.camera.internal.picture.remove', true, true);
                             ev.success = true;
                             ev.filename=picURL;
-                            document.dispatchEvent(ev);
+                            document.dispatchEvent(ev);*/
+                            me.createAndDispatchEvent("intel.xdk.camera.internal.picture.remove",
+                                {
+                                    success: true,
+                                    filename: picURL
+                                });
 
-                            ev = document.createEvent('Events');
+                            /*ev = document.createEvent('Events');
                             ev.initEvent('intel.xdk.camera.picture.remove', true, true);
                             ev.success = true;
                             ev.filename = picURL;
-                            document.dispatchEvent(ev);
+                            document.dispatchEvent(ev);*/
+                            me.createAndDispatchEvent("intel.xdk.camera.picture.remove",
+                                {
+                                    success: true,
+                                    filename: picURL
+                                });
                         } else {
-                            var ev = document.createEvent('Events');
+                            /*var ev = document.createEvent('Events');
                             ev.initEvent('intel.xdk.camera.picture.remove', true, true);
                             ev.success = false;
                             ev.filename = picURL;
-                            document.dispatchEvent(ev);
+                            document.dispatchEvent(ev);*/
+                            me.createAndDispatchEvent("intel.xdk.camera.picture.remove",
+                                {
+                                    success: false,
+                                    filename: picURL
+                                });
                         }
                     },
                     function (error) {
@@ -326,29 +362,47 @@ module.exports = {
                         )
                     });
 
-                    var ev = document.createEvent('Events');
+                    /*var ev = document.createEvent('Events');
                     ev.initEvent('intel.xdk.camera.internal.picture.clear', true, true);
-                    ev.success = true; document.dispatchEvent(ev);
+                    ev.success = true; document.dispatchEvent(ev);*/
+                    me.createAndDispatchEvent("intel.xdk.camera.internal.picture.clear",
+                        {
+                            success: true
+                        });
 
-                    ev = document.createEvent('Events');
+                    /*ev = document.createEvent('Events');
                     ev.initEvent('intel.xdk.camera.picture.clear', true, true);
-                    ev.success = true; document.dispatchEvent(ev);
+                    ev.success = true; document.dispatchEvent(ev);*/
+                    me.createAndDispatchEvent("intel.xdk.camera.picture.clear",
+                        {
+                            success: true
+                        });
 
                 }
             );
 
 
         } catch (e) {
-            var ev = document.createEvent('Events');
+            /*var ev = document.createEvent('Events');
             ev.initEvent('intel.xdk.camera.picture.clear', true, true);
-            ev.success = false; ev.message = 'Clearing images failed.'; document.dispatchEvent(ev);
+            ev.success = false; ev.message = 'Clearing images failed.'; document.dispatchEvent(ev);*/
+            me.createAndDispatchEvent("intel.xdk.camera.picture.clear",
+                {
+                    success: false,
+                    message: "Clearing images failed"
+                });
         }
     },
 
     cameraBusy: function() {
-        var e = document.createEvent('Events');
+        /*var e = document.createEvent('Events');
         e.initEvent('intel.xdk.camera.picture.busy', true, true);
-        e.success=false;e.message='busy';document.dispatchEvent(e);
+        e.success=false;e.message='busy';document.dispatchEvent(e);*/
+        me.createAndDispatchEvent("intel.xdk.camera.picture.busy",
+            {
+                success: false,
+                message: "busy"
+            });
     },
 
     enumerateCameras: function() {
@@ -359,7 +413,18 @@ module.exports = {
                 me.deviceList.push(devices[i]);
             }
         });
-    }
+    },
+
+    createAndDispatchEvent: function (name, properties) {
+        var e = document.createEvent('Events');
+        e.initEvent(name, true, true);
+        if (typeof properties === 'object') {
+            for (key in properties) {
+                e[key] = properties[key];
+            }
+        }
+        document.dispatchEvent(e);
+    },
 };
 
 commandProxy.add('IntelXDKCamera', module.exports);
